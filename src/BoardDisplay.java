@@ -10,6 +10,8 @@ import java.util.ArrayList;
  * Created by Thai Flowers on 6/11/2017.
  */
 public class BoardDisplay extends JPanel {
+    private BoardStatusBar statusBar;
+
     private Player player;
     private PlayState playState;
 
@@ -37,6 +39,7 @@ public class BoardDisplay extends JPanel {
 
     public BoardDisplay(Player player, PlayState playState) {
         super();
+        setLayout(new BorderLayout());
 
         setPreferredSize(new Dimension(500, 500));
         setMinimumSize(new Dimension(250, 250));
@@ -45,6 +48,11 @@ public class BoardDisplay extends JPanel {
         BoardDisplayMouseAdaptor bdma = new BoardDisplayMouseAdaptor();
         addMouseMotionListener(bdma);
         addMouseListener(bdma);
+    }
+
+    public void setStatusBar(BoardStatusBar statusBar) {
+        this.statusBar = statusBar;
+        statusBar.setLeft("");
     }
 
     public void swapData(Player player, PlayState playState) {
@@ -154,13 +162,13 @@ public class BoardDisplay extends JPanel {
                 lastClickPoint = e.getPoint();
             }
 
-            boolean xOkay = (padX < lastClickPoint.x && lastClickPoint.x < (padX+15*boardSide));
-            boolean yOkay = (padY < lastClickPoint.y && lastClickPoint.y < (padY+15*boardSide));
+            boolean xOkay = (padX < lastClickPoint.x && lastClickPoint.x < (padX + 15 * boardSide) && lastClickPoint.x < getWidth());
+            boolean yOkay = (padY < lastClickPoint.y && lastClickPoint.y < (padY + 15 * boardSide) && lastClickPoint.y < getHeight());
             if (xOkay && yOkay) {
 
                 // remember format is row x col (y is row, x is col)
-                lastClickCell[0] = Math.floorDiv(lastClickPoint.y-padY, cellSide);
-                lastClickCell[1] = Math.floorDiv(lastClickPoint.x-padX, cellSide);
+                lastClickCell[0] = Math.floorDiv(lastClickPoint.y - padY, cellSide);
+                lastClickCell[1] = Math.floorDiv(lastClickPoint.x - padX, cellSide);
 
             }
 
@@ -172,8 +180,8 @@ public class BoardDisplay extends JPanel {
             super.mousePressed(e);
             lastDragPoint = e.getPoint();
 
-            boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX+15*boardSide));
-            boolean yOkay = (padY < lastDragPoint.y && lastDragPoint.y < (padY+15*boardSide));
+            boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX + 15 * boardSide));
+            boolean yOkay = (padY < lastDragPoint.y && lastDragPoint.y < (padY + 15 * boardSide));
             if (xOkay && yOkay) {
 
                 dragStartCell[0] = Math.floorDiv(lastDragPoint.y - padY, cellSide);
@@ -187,58 +195,82 @@ public class BoardDisplay extends JPanel {
         }
 
         @Override
+        public void mouseDragged(MouseEvent e) {
+            super.mouseDragged(e);
+            lastDragPoint = e.getPoint();
+            repaint();
+        }
+
+        @Override
         public void mouseReleased(MouseEvent e) {
             super.mouseReleased(e);
 
             lastDragPoint = e.getPoint();
             int[] dragEndCell = new int[2];
 
-            boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX+15*boardSide));
-            boolean yOkay = (padY < lastDragPoint.y && lastDragPoint.y < (padY+15*boardSide));
+            BoardPoint startPos = null, endPos = null;
+
+            boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX + 15 * boardSide) && lastDragPoint.x < getWidth());
+            boolean yOkay = (padY < lastDragPoint.y && lastDragPoint.y < (padY + 15 * boardSide) && lastDragPoint.y < getHeight());
             if (xOkay && yOkay) {
 
                 dragEndCell[0] = Math.floorDiv(lastDragPoint.y - padY, cellSide);
                 dragEndCell[1] = Math.floorDiv(lastDragPoint.x - padX, cellSide);
+
+                startPos = new BoardPoint(dragStartCell[0], dragStartCell[1]);
+                endPos = new BoardPoint(dragEndCell[0], dragEndCell[1]);
             }
 
-            BoardPoint startPos = new BoardPoint(dragStartCell[0], dragStartCell[1]);
-            BoardPoint endPos = new BoardPoint(dragEndCell[0], dragEndCell[1]);
+            if (startPos != null && endPos != null && !startPos.equals(endPos)) {
 
-            if (!startPos.equals(endPos)) {
-
+                boolean errorEncountered = false;
                 String moveString;
                 if (playState.isRemoveTurn()) {
                     moveString = String.format("R %s", endPos.toString());
-                }
-                else if (playState.isTurn(BoardStates.DWARF) && player.getBoard().getAtPosition(endPos).equals(BoardStates.TROLL)) {
+                } else if (playState.isTurn(BoardStates.DWARF) && player.getBoard().getAtPosition(endPos).equals(BoardStates.TROLL)) {
                     moveString = String.format("H %s %s", startPos.toString(), endPos.toString());
-                }
-                else if (playState.isTurn(BoardStates.TROLL) &&
-                        ((Math.abs(endPos.getRow()-startPos.getRow())>1) || (Math.abs(endPos.getCol()-startPos.getCol()))>1)) {
+                } else if (playState.isTurn(BoardStates.TROLL) &&
+                        ((Math.abs(endPos.getRow() - startPos.getRow()) > 1) || (Math.abs(endPos.getCol() - startPos.getCol())) > 1)) {
                     moveString = String.format("S %s %s", startPos.toString(), endPos.toString());
-                }
-                else{
+                } else {
                     moveString = String.format("M %s %s", startPos.toString(), endPos.toString());
+                    if (statusBar != null)
+                        statusBar.setLeft(moveString);
                 }
                 try {
                     player.play(playState, moveString);
                 } catch (IllegalArgumentException ex) {
-                    System.err.println(ex.getMessage());
+                    if (statusBar != null) {
+                        statusBar.setLeft(ex.getMessage());
+                        errorEncountered = true;
+                    }
+                }
+
+                if (statusBar != null && !errorEncountered) {
+                    // Set last move display
+                    // inverse of normal logic, we are reporting the completed move (last player's side)
+                    String sideString = (playState.getTurn() != BoardStates.DWARF) ? "Dwarfs: " : "Trolls: ";
+                    statusBar.setLeft(sideString + moveString);
+
+                    // Set current move display (Troll, Dwarf, Remove)
+                    String turnStr;
+                    if (playState.isTurn(BoardStates.DWARF))
+                        turnStr = "Dwarfs Play";
+                    else if (!playState.isRemoveTurn())
+                        turnStr = "Trolls Play";
+                    else if (player.mustRemove())
+                        turnStr = "Trolls must capture";
+                    else
+                        turnStr = "Trolls may capture";
+                    statusBar.setRight(turnStr);
                 }
             }
 
             lastDragPoint = null;
             lastClickPoint = null;
-            lastClickCell = new Integer[] {-1,-1};
-            dragStartCell = new Integer[] {-1, -1};
+            lastClickCell = new Integer[]{-1, -1};
+            dragStartCell = new Integer[]{-1, -1};
             drag = false;
-            repaint();
-        }
-
-        @Override
-        public void mouseDragged(MouseEvent e) {
-            super.mouseDragged(e);
-            lastDragPoint = e.getPoint();
             repaint();
         }
     }

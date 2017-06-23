@@ -40,11 +40,6 @@ public class Main {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         Container pane = frame.getContentPane();
 
-        /*
-        JTextArea ta = new JTextArea(board.printBoard(false));
-        pane.add(ta, BorderLayout.CENTER);
-        */
-
         BoardDisplay display = new BoardDisplay(player, playState);
         pane.add(display, BorderLayout.CENTER);
 
@@ -101,6 +96,13 @@ public class Main {
             }
         });
         fileMenu.add(loadItem);
+
+        BoardStatusBar status = new BoardStatusBar();
+        display.setStatusBar(status);
+        status.setOpaque(false);
+        status.setLeft("Welcome to Thud!");
+        status.setRight("Dwarfs move first");
+        frame.add(status, BorderLayout.SOUTH);
 
         frame.pack();
         frame.setVisible(true);
