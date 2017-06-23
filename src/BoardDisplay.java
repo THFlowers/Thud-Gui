@@ -15,6 +15,8 @@ public class BoardDisplay extends JPanel {
     private Player player;
     private PlayState playState;
 
+    boolean lock = false;
+
     Color light = Color.WHITE;
     Color dark  = Color.DARK_GRAY;
     Color boardEdge = Color.BLACK;
@@ -61,7 +63,17 @@ public class BoardDisplay extends JPanel {
 
         this.player = player;
         this.playState = playState;
+
+        unlock();
         repaint();
+    }
+
+    public void lock() {
+        lock = true;
+    }
+
+    public void unlock() {
+        lock = false;
     }
 
     @Override
@@ -158,6 +170,9 @@ public class BoardDisplay extends JPanel {
         @Override
         public void mouseClicked(MouseEvent e) {
             super.mouseClicked(e);
+            if (lock)
+                return;
+
             if (e.getButton() == MouseEvent.BUTTON1) {
                 lastClickPoint = e.getPoint();
             }
@@ -178,6 +193,9 @@ public class BoardDisplay extends JPanel {
         @Override
         public void mousePressed(MouseEvent e) {
             super.mousePressed(e);
+            if (lock)
+                return;
+
             lastDragPoint = e.getPoint();
 
             boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX + 15 * boardSide));
@@ -196,6 +214,9 @@ public class BoardDisplay extends JPanel {
 
         @Override
         public void mouseDragged(MouseEvent e) {
+            if (lock)
+                return;
+
             super.mouseDragged(e);
             lastDragPoint = e.getPoint();
             repaint();
@@ -204,6 +225,8 @@ public class BoardDisplay extends JPanel {
         @Override
         public void mouseReleased(MouseEvent e) {
             super.mouseReleased(e);
+            if (lock)
+                return;
 
             lastDragPoint = e.getPoint();
             int[] dragEndCell = new int[2];

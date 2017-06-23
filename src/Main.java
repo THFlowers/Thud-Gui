@@ -10,10 +10,24 @@ import java.io.IOException;
  * Created by Thai Flowers on 6/10/2017.
  */
 public class Main {
-    static Board board = new Board();
-    static Player player = new Player(board);
-    static PlayState playState = new PlayState();
-    static RecordsManager recordsManager = new RecordsManager();
+    static Board board;
+    static Player player;
+    static PlayState playState;
+    static RecordsManager recordsManager;
+
+    static JFrame frame;
+    static Container pane;
+    static BoardDisplay display;
+    static JMenuBar menu;
+    static JMenu fileMenu;
+    static JMenuItem newItem;
+    static JMenuItem saveItem;
+    static JMenuItem loadItem;
+    static JMenu actionMenu;
+    static JMenuItem forfeit;
+    static JMenuItem removeAll;
+    static JMenuItem removeNone;
+    static BoardStatusBar status;
 
     public static void main(String[] args) {
         try {
@@ -24,8 +38,11 @@ public class Main {
             System.err.println("Can't set look and feel");
         }
 
-        player.initializeGame();
-        playState.setTurn(BoardStates.DWARF);
+        board  = new Board();
+        player = new Player(board);
+        playState = player.initializeGame();
+        recordsManager = new RecordsManager();
+        recordsManager.addRound(player);
 
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
             public void run() {
@@ -36,37 +53,49 @@ public class Main {
     }
 
     public static void createAndShowGUI() {
-        JFrame frame = new JFrame("Thud!");
+        frame = new JFrame("Thud!");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        Container pane = frame.getContentPane();
+        pane = frame.getContentPane();
 
-        BoardDisplay display = new BoardDisplay(player, playState);
+        display = new BoardDisplay(player, playState);
         pane.add(display, BorderLayout.CENTER);
 
-        JMenuBar menu = new JMenuBar();
+        menu = new JMenuBar();
         pane.add(menu, BorderLayout.NORTH);
 
-        JMenu fileMenu = new JMenu("Game");
+        fileMenu = new JMenu("Game");
         menu.add(fileMenu);
 
-        JMenuItem newItem = new JMenuItem("New");
+        // human v human
+        newItem = new JMenuItem("New");
         newItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 board = new Board();
                 player = new Player(board);
-                playState = new PlayState(BoardStates.TROLL, false);
+                recordsManager = new RecordsManager();
 
-                player.initializeGame();
+                playState = player.initializeGame();
+                recordsManager.addRound(player);
+
                 display.swapData(player, playState);
+
+                status.setLeft("New Game");
+                status.setRight("Dwarfs play first");
             }
         });
         fileMenu.add(newItem);
 
-        JMenuItem saveItem = new JMenuItem("Save");
+        saveItem = new JMenuItem("Save");
+        saveItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+            }
+        });
         fileMenu.add(saveItem);
 
-        JMenuItem loadItem = new JMenuItem("Load");
+        loadItem = new JMenuItem("Load");
         loadItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -97,7 +126,66 @@ public class Main {
         });
         fileMenu.add(loadItem);
 
-        BoardStatusBar status = new BoardStatusBar();
+        actionMenu = new JMenu("Action");
+        menu.add(actionMenu);
+
+        forfeit = new JMenuItem("Forfeit Round");
+        forfeit.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (recordsManager.getCurrentRound() == 2) {
+                    player.calculateScores(recordsManager.getCurrentRound());
+
+                    int[] scores = player.getScores();
+                    String message;
+                    if (scores[0] > scores[1])
+                        message = "Player 1";
+                    else if (scores[1] > scores[0])
+                        message = "Player 2 Wins";
+                    else
+                        message = "Draw";
+
+                    status.setLeft("Game Over");
+                    status.setRight(message);
+
+                    display.lock();
+                }
+                else {
+                    player.calculateScores(recordsManager.getCurrentRound());
+                    board = new Board();
+                    player = new Player(board);
+
+                    playState = player.initializeGame();
+                    recordsManager.addRound(player);
+
+                    display.swapData(player, playState);
+
+                    status.setLeft("Round 2");
+                    status.setRight("Dwarfs play first");
+                }
+            }
+        });
+        actionMenu.add(forfeit);
+
+        removeAll = new JMenuItem("Remove All");
+        removeAll.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+            }
+        });
+        actionMenu.add(removeAll);
+
+        removeNone = new JMenuItem("Remove None");
+        removeNone.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+            }
+        });
+        actionMenu.add(removeNone);
+
+        status = new BoardStatusBar();
         display.setStatusBar(status);
         status.setOpaque(false);
         status.setLeft("Welcome to Thud!");
