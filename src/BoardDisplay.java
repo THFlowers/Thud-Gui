@@ -4,297 +4,387 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.ArrayList;
 
 /**
  * Created by Thai Flowers on 6/11/2017.
  */
 public class BoardDisplay extends JPanel {
-    private BoardStatusBar statusBar;
 
-    private Player player;
-    private PlayState playState;
+	// Optional gui object references
+	private BoardStatusBar statusBar;
+	private AbstractButton removeAllButton, removeNoneButton;
+	private AbstractButton forfeitButton;
 
-    boolean lock = false;
+	// Core gameplay objects
+	private Player player;
+	private PlayState playState;
+	private MonteCarloPlay ai;
 
-    Color light = Color.WHITE;
-    Color dark  = Color.DARK_GRAY;
-    Color boardEdge = Color.BLACK;
-    Color trollColor = Color.RED;
-    Color dwarfColor = Color.BLUE;
-    Color stoneColor = Color.BLACK;
-    Color selected = Color.YELLOW;
-    Color possible = new Color(Color.YELLOW.getRed(), Color.YELLOW.getGreen(), Color.YELLOW.getBlue(), 100);
+	// internal gui state
+	boolean lock = false;
 
-    Integer[] lastClickCell = new Integer[] {-1,-1};
-    Point lastClickPoint;
+	Color light = Color.WHITE;
+	Color dark  = Color.DARK_GRAY;
+	Color boardEdgeColor = Color.BLACK;
+	Color trollColor = Color.RED;
+	Color dwarfColor = Color.BLUE;
+	Color stoneColor = Color.BLACK;
+	Color selectedColor = Color.YELLOW;
+	Color moveColor = new Color(Color.YELLOW.getRed(), Color.YELLOW.getGreen(), Color.YELLOW.getBlue(), 100);
+	Color specialMoveColor = new Color(Color.RED.getRed(), 0, Color.YELLOW.getBlue(), 100);
 
-    Boolean drag = false;
-    Integer[] dragStartCell = new Integer[] {-1, -1};
-    Point lastDragPoint;
+	Integer[] lastClickCell = new Integer[] {-1,-1};
+	Point lastClickPoint;
 
-    int padX = 0;
-    int padY = 0;
-    int boardSide =0;
-    int cellSide = 0;
-    int cellError = 0;
+	Boolean drag = false;
+	Integer[] dragStartCell = new Integer[] {-1, -1};
+	Point lastDragPoint;
 
-    public BoardDisplay(Player player, PlayState playState) {
-        super();
-        setLayout(new BorderLayout());
+	int padX = 0;
+	int padY = 0;
+	int boardSide =0;
+	int cellSide = 0;
+	int cellError = 0;
 
-        setPreferredSize(new Dimension(500, 500));
-        setMinimumSize(new Dimension(250, 250));
+	public BoardDisplay(Player player, PlayState playState) {
+		super();
+		setLayout(new BorderLayout());
 
-        swapData(player, playState);
-        BoardDisplayMouseAdaptor bdma = new BoardDisplayMouseAdaptor();
-        addMouseMotionListener(bdma);
-        addMouseListener(bdma);
-    }
+		setPreferredSize(new Dimension(500, 500));
+		setMinimumSize(new Dimension(250, 250));
 
-    public void setStatusBar(BoardStatusBar statusBar) {
-        this.statusBar = statusBar;
-        statusBar.setLeft("");
-    }
+		swapData(player, playState);
+		BoardDisplayMouseAdaptor bdma = new BoardDisplayMouseAdaptor();
+		addMouseMotionListener(bdma);
+		addMouseListener(bdma);
+	}
 
-    public void swapData(Player player, PlayState playState) {
-        lastClickCell = new Integer[] {-1,-1};
-        lastClickPoint = null;
+	public void clearMouseData() {
+		lastDragPoint = null;
+		lastClickPoint = null;
+		lastClickCell = new Integer[]{-1, -1};
+		dragStartCell = new Integer[]{-1, -1};
+		drag = false;
+	}
 
-        this.player = player;
-        this.playState = playState;
+	public void setStatusBar(BoardStatusBar statusBar) {
+		this.statusBar = statusBar;
+		statusBar.setLeft("");
+		statusBar.setRight("");
+	}
 
-        unlock();
-        repaint();
-    }
+	public void swapData(Player player, PlayState playState) {
+		clearMouseData();
 
-    public void lock() {
-        lock = true;
-    }
+		this.player = player;
+		this.playState = playState;
 
-    public void unlock() {
-        lock = false;
-    }
+		unlock();
+		repaint();
+	}
 
-    @Override
-    public void paintComponent(Graphics g) {
-        super.paintComponent(g);
+	public void setAI(MonteCarloPlay ai) {
+		this.ai = ai;
+	}
 
-        Board board = player.getBoard();
+	public void setRemoveButtons(AbstractButton removeAllButton, AbstractButton removeNoneButton) {
+		this.removeAllButton = removeAllButton;
+		this.removeNoneButton = removeNoneButton;
+		this.removeAllButton.setEnabled(false);
+		this.removeNoneButton.setEnabled(false);
+	}
 
-        boardSide = (getWidth() > getHeight()) ?  getHeight() : getWidth();
-        cellSide  = boardSide / 15;
-        cellError = boardSide % 15;
+	public void setForfeitButton(AbstractButton forfeitButton) {
+		this.forfeitButton = forfeitButton;
+		if (player.getMoveLog().size() <= 1)
+			this.forfeitButton.setEnabled(false);
+	}
 
-        padX = (getWidth()  - boardSide + cellError) / 2;
-        padY = (getHeight() - boardSide + cellError) / 2;
+	public void lock() {
+		lock = true;
+	}
 
-        BoardStates turn = playState.getTurn();
-        BoardStates cellState;
-        boolean ourPiece = false;
+	public void unlock() {
+		lock = false;
+	}
 
-        if (BoardPoint.isOnBoard(lastClickCell[0], lastClickCell[1])) {
-            cellState = board.getAtPosition(lastClickCell[0], lastClickCell[1]);
-            ourPiece = turn.equals(cellState);
-        }
+	@Override
+	public void paintComponent(Graphics g) {
+		super.paintComponent(g);
 
-        ArrayList<BoardPoint> possibleMoves = null;
-        if (ourPiece && BoardPoint.isOnBoard(lastClickCell[0], lastClickCell[1])) {
-            possibleMoves = player.getPossibleMoves(playState, new BoardPoint(lastClickCell[0], lastClickCell[1]));
-        }
+		Board board = player.getBoard();
 
-        for (int i=0; i<15; i++) {
-            for (int j = 0; j < 15; j++) {
-                BoardPoint pos = new BoardPoint(i,j);
-                cellState = board.getAtPosition(pos);
-                Color curCol = (Math.pow(-1, i + j) == 1) ? dark : light;
+		boardSide = (getWidth() > getHeight()) ?  getHeight() : getWidth();
+		cellSide  = boardSide / 15;
+		cellError = boardSide % 15;
 
-                if (ourPiece && i==lastClickCell[0] && j==lastClickCell[1])
-                    g.setColor(selected);
-                else
-                    g.setColor(curCol);
+		padX = (getWidth()  - boardSide + cellError) / 2;
+		padY = (getHeight() - boardSide + cellError) / 2;
 
-                g.fillRect(j * cellSide + padX, i * cellSide + padY, cellSide, cellSide);
-                if (!(cellState == BoardStates.FREE || (drag && i==dragStartCell[0]) && j==dragStartCell[1]))
-                    drawPiece(g, cellState, j*cellSide+padX, i*cellSide+padY, cellSide);
-                if (possibleMoves!=null && possibleMoves.contains(pos)) {
-                    g.setColor(possible);
-                    g.fillRect(j * cellSide + padX, i * cellSide + padY, cellSide, cellSide);
-                }
-            }
-        }
+		BoardStates turn = playState.getTurn();
+		BoardStates cellState;
+		boolean ourPiece = false;
 
-        if (drag) {
-            cellState = board.getAtPosition(dragStartCell[0], dragStartCell[1]);
-            drawPiece(g, cellState, lastDragPoint.x, lastDragPoint.y, cellSide);
-        }
+		if (BoardPoint.isOnBoard(lastClickCell[0], lastClickCell[1])) {
+			cellState = board.getAtPosition(lastClickCell[0], lastClickCell[1]);
+			ourPiece = turn.equals(cellState);
+		}
 
-        drawEdgeTriangles(g, cellSide, padX, padY);
-    }
+		PossiblePieceMoves possibleMoves = null;
+		if (ourPiece && BoardPoint.isOnBoard(lastClickCell[0], lastClickCell[1])) {
+			possibleMoves = player.getPossiblePieceMoves(playState, new BoardPoint(lastClickCell[0], lastClickCell[1]));
+		}
 
-    private void drawPiece(Graphics g, BoardStates cellState, int i, int j, int cellSide) {
-        switch (cellState) {
-            case DWARF:
-                g.setColor(dwarfColor);
-                break;
-            case TROLL:
-                g.setColor(trollColor);
-                break;
-            case STONE:
-                g.setColor(stoneColor);
-                break;
-        }
-        g.fillRect(i,j,cellSide/2, cellSide/2);
-    }
+		for (int i=0; i<15; i++) {
+			for (int j = 0; j < 15; j++) {
+				BoardPoint pos = new BoardPoint(i,j);
+				cellState = board.getAtPosition(pos);
+				Color curCol = (Math.pow(-1, i + j) == 1) ? dark : light;
 
-    private void drawEdgeTriangles(Graphics g, int cellSide, int padX, int padY) {
-        g.setColor(boardEdge);
-        int[] triag1Xs = new int[] {padX, padX+cellSide*5, padX};
-        int[] triag1Ys = new int[] {padY, padY, padY+cellSide*5};
-        g.fillPolygon(triag1Xs, triag1Ys, 3);
+				if (ourPiece && i==lastClickCell[0] && j==lastClickCell[1])
+					g.setColor(selectedColor);
+				else
+					g.setColor(curCol);
 
-        int[] triag2Xs = new int[] {padX+cellSide*15, padX+cellSide*10, padX+cellSide*15};
-        int[] triag2Ys = new int[] {padY, padY, padY+cellSide*5};
-        g.fillPolygon(triag2Xs, triag2Ys, 3);
+				g.fillRect(j * cellSide + padX, i * cellSide + padY, cellSide, cellSide);
+				if (!(cellState == BoardStates.FREE || (drag && i==dragStartCell[0]) && j==dragStartCell[1]))
+					drawPiece(g, cellState, j*cellSide+padX, i*cellSide+padY, cellSide);
 
-        int[] triag3Xs = new int[] {padX, padX+cellSide*5, padX};
-        int[] triag3Ys = new int[] {padY+15*cellSide, padY+cellSide*15, padY+cellSide*10};
-        g.fillPolygon(triag3Xs, triag3Ys, 3);
+				if (!playState.isRemoveTurn()) {
+					if (possibleMoves != null && possibleMoves.getMove().contains(pos)) {
+						g.setColor(moveColor);
+						g.fillRect(j * cellSide + padX, i * cellSide + padY, cellSide, cellSide);
+					}
+					if (possibleMoves != null && possibleMoves.getSpecial().contains(pos)) {
+						g.setColor(specialMoveColor);
+						g.fillRect(j * cellSide + padX, i * cellSide + padY, cellSide, cellSide);
+					}
+				}
+				else {
+					if (possibleMoves != null && possibleMoves.getRemove().contains(pos)) {
+						g.setColor(specialMoveColor);
+						g.fillRect(j * cellSide + padX, i * cellSide + padY, cellSide, cellSide);
+					}
+				}
+			}
+		}
 
-        int[] triag4Xs = new int[] {padX+cellSide*15, padX+cellSide*10, padX+cellSide*15};
-        int[] triag4Ys = new int[] {padY+15*cellSide, padY+cellSide*15, padY+cellSide*10};
-        g.fillPolygon(triag4Xs, triag4Ys, 3);
-    }
+		if (drag) {
+			cellState = board.getAtPosition(dragStartCell[0], dragStartCell[1]);
+			drawPiece(g, cellState, lastDragPoint.x, lastDragPoint.y, cellSide);
+		}
 
-    private class BoardDisplayMouseAdaptor extends MouseAdapter {
-        @Override
-        public void mouseClicked(MouseEvent e) {
-            super.mouseClicked(e);
-            if (lock)
-                return;
+		drawEdgeTriangles(g, cellSide, padX, padY);
+	}
 
-            if (e.getButton() == MouseEvent.BUTTON1) {
-                lastClickPoint = e.getPoint();
-            }
+	private void drawPiece(Graphics g, BoardStates cellState, int i, int j, int cellSide) {
+		switch (cellState) {
+			case DWARF:
+				g.setColor(dwarfColor);
+				break;
+			case TROLL:
+				g.setColor(trollColor);
+				break;
+			case STONE:
+				g.setColor(stoneColor);
+				break;
+		}
+		g.fillRect(i,j,cellSide/2, cellSide/2);
+	}
 
-            boolean xOkay = (padX < lastClickPoint.x && lastClickPoint.x < (padX + 15 * boardSide) && lastClickPoint.x < getWidth());
-            boolean yOkay = (padY < lastClickPoint.y && lastClickPoint.y < (padY + 15 * boardSide) && lastClickPoint.y < getHeight());
-            if (xOkay && yOkay) {
+	private void drawEdgeTriangles(Graphics g, int cellSide, int padX, int padY) {
+		g.setColor(boardEdgeColor);
+		int[] triag1Xs = new int[] {padX, padX+cellSide*5, padX};
+		int[] triag1Ys = new int[] {padY, padY, padY+cellSide*5};
+		g.fillPolygon(triag1Xs, triag1Ys, 3);
 
-                // remember format is row x col (y is row, x is col)
-                lastClickCell[0] = Math.floorDiv(lastClickPoint.y - padY, cellSide);
-                lastClickCell[1] = Math.floorDiv(lastClickPoint.x - padX, cellSide);
+		int[] triag2Xs = new int[] {padX+cellSide*15, padX+cellSide*10, padX+cellSide*15};
+		int[] triag2Ys = new int[] {padY, padY, padY+cellSide*5};
+		g.fillPolygon(triag2Xs, triag2Ys, 3);
 
-            }
+		int[] triag3Xs = new int[] {padX, padX+cellSide*5, padX};
+		int[] triag3Ys = new int[] {padY+15*cellSide, padY+cellSide*15, padY+cellSide*10};
+		g.fillPolygon(triag3Xs, triag3Ys, 3);
 
-            repaint();
-        }
+		int[] triag4Xs = new int[] {padX+cellSide*15, padX+cellSide*10, padX+cellSide*15};
+		int[] triag4Ys = new int[] {padY+15*cellSide, padY+cellSide*15, padY+cellSide*10};
+		g.fillPolygon(triag4Xs, triag4Ys, 3);
+	}
 
-        @Override
-        public void mousePressed(MouseEvent e) {
-            super.mousePressed(e);
-            if (lock)
-                return;
+	private class BoardDisplayMouseAdaptor extends MouseAdapter {
+		@Override
+		public void mouseClicked(MouseEvent e) {
+			super.mouseClicked(e);
+			if (lock)
+				return;
 
-            lastDragPoint = e.getPoint();
+			if (e.getButton() == MouseEvent.BUTTON1) {
+				lastClickPoint = e.getPoint();
+			}
 
-            boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX + 15 * boardSide));
-            boolean yOkay = (padY < lastDragPoint.y && lastDragPoint.y < (padY + 15 * boardSide));
-            if (xOkay && yOkay) {
+			boolean xOkay = (padX < lastClickPoint.x && lastClickPoint.x < (padX + 15 * boardSide) && lastClickPoint.x < getWidth());
+			boolean yOkay = (padY < lastClickPoint.y && lastClickPoint.y < (padY + 15 * boardSide) && lastClickPoint.y < getHeight());
+			if (xOkay && yOkay) {
 
-                dragStartCell[0] = Math.floorDiv(lastDragPoint.y - padY, cellSide);
-                dragStartCell[1] = Math.floorDiv(lastDragPoint.x - padX, cellSide);
+				// remember format is row x col (y is row, x is col)
+				lastClickCell[0] = Math.floorDiv(lastClickPoint.y - padY, cellSide);
+				lastClickCell[1] = Math.floorDiv(lastClickPoint.x - padX, cellSide);
 
-                BoardStates turn = playState.getTurn();
-                Board board = player.getBoard();
-                drag = turn.equals(board.getAtPosition(dragStartCell[0], dragStartCell[1]));
-            }
-            repaint();
-        }
+			}
 
-        @Override
-        public void mouseDragged(MouseEvent e) {
-            if (lock)
-                return;
+			repaint();
+		}
 
-            super.mouseDragged(e);
-            lastDragPoint = e.getPoint();
-            repaint();
-        }
+		@Override
+		public void mousePressed(MouseEvent e) {
+			super.mousePressed(e);
+			if (lock)
+				return;
 
-        @Override
-        public void mouseReleased(MouseEvent e) {
-            super.mouseReleased(e);
-            if (lock)
-                return;
+			lastDragPoint = e.getPoint();
 
-            lastDragPoint = e.getPoint();
-            int[] dragEndCell = new int[2];
+			boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX + 15 * boardSide));
+			boolean yOkay = (padY < lastDragPoint.y && lastDragPoint.y < (padY + 15 * boardSide));
+			if (xOkay && yOkay) {
 
-            BoardPoint startPos = null, endPos = null;
+				dragStartCell[0] = Math.floorDiv(lastDragPoint.y - padY, cellSide);
+				dragStartCell[1] = Math.floorDiv(lastDragPoint.x - padX, cellSide);
 
-            boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX + 15 * boardSide) && lastDragPoint.x < getWidth());
-            boolean yOkay = (padY < lastDragPoint.y && lastDragPoint.y < (padY + 15 * boardSide) && lastDragPoint.y < getHeight());
-            if (xOkay && yOkay) {
+				BoardStates turn = playState.getTurn();
+				Board board = player.getBoard();
+				drag = turn.equals(board.getAtPosition(dragStartCell[0], dragStartCell[1]));
+			}
+			repaint();
+		}
 
-                dragEndCell[0] = Math.floorDiv(lastDragPoint.y - padY, cellSide);
-                dragEndCell[1] = Math.floorDiv(lastDragPoint.x - padX, cellSide);
+		@Override
+		public void mouseDragged(MouseEvent e) {
+			if (lock)
+				return;
 
-                startPos = new BoardPoint(dragStartCell[0], dragStartCell[1]);
-                endPos = new BoardPoint(dragEndCell[0], dragEndCell[1]);
-            }
+			super.mouseDragged(e);
+			lastDragPoint = e.getPoint();
+			repaint();
+		}
 
-            if (startPos != null && endPos != null && !startPos.equals(endPos)) {
+		@Override
+		public void mouseReleased(MouseEvent e) {
+			super.mouseReleased(e);
+			if (lock)
+				return;
 
-                boolean errorEncountered = false;
-                String moveString;
-                if (playState.isRemoveTurn()) {
-                    moveString = String.format("R %s", endPos.toString());
-                } else if (playState.isTurn(BoardStates.DWARF) && player.getBoard().getAtPosition(endPos).equals(BoardStates.TROLL)) {
-                    moveString = String.format("H %s %s", startPos.toString(), endPos.toString());
-                } else if (playState.isTurn(BoardStates.TROLL) &&
-                        ((Math.abs(endPos.getRow() - startPos.getRow()) > 1) || (Math.abs(endPos.getCol() - startPos.getCol())) > 1)) {
-                    moveString = String.format("S %s %s", startPos.toString(), endPos.toString());
-                } else {
-                    moveString = String.format("M %s %s", startPos.toString(), endPos.toString());
-                    if (statusBar != null)
-                        statusBar.setLeft(moveString);
-                }
-                try {
-                    player.play(playState, moveString);
-                } catch (IllegalArgumentException ex) {
-                    if (statusBar != null) {
-                        statusBar.setLeft(ex.getMessage());
-                        errorEncountered = true;
-                    }
-                }
+			lastDragPoint = e.getPoint();
+			int[] dragEndCell = new int[2];
 
-                if (statusBar != null && !errorEncountered) {
-                    // Set last move display
-                    // inverse of normal logic, we are reporting the completed move (last player's side)
-                    String sideString = (playState.getTurn() != BoardStates.DWARF) ? "Dwarfs: " : "Trolls: ";
-                    statusBar.setLeft(sideString + moveString);
+			BoardPoint startPos = null, endPos = null;
 
-                    // Set current move display (Troll, Dwarf, Remove)
-                    String turnStr;
-                    if (playState.isTurn(BoardStates.DWARF))
-                        turnStr = "Dwarfs Play";
-                    else if (!playState.isRemoveTurn())
-                        turnStr = "Trolls Play";
-                    else if (player.mustRemove())
-                        turnStr = "Trolls must capture";
-                    else
-                        turnStr = "Trolls may capture";
-                    statusBar.setRight(turnStr);
-                }
-            }
+			boolean xOkay = (padX < lastDragPoint.x && lastDragPoint.x < (padX + 15 * boardSide) && lastDragPoint.x < getWidth());
+			boolean yOkay = (padY < lastDragPoint.y && lastDragPoint.y < (padY + 15 * boardSide) && lastDragPoint.y < getHeight());
+			if (xOkay && yOkay) {
 
-            lastDragPoint = null;
-            lastClickPoint = null;
-            lastClickCell = new Integer[]{-1, -1};
-            dragStartCell = new Integer[]{-1, -1};
-            drag = false;
-            repaint();
-        }
-    }
+				dragEndCell[0] = Math.floorDiv(lastDragPoint.y - padY, cellSide);
+				dragEndCell[1] = Math.floorDiv(lastDragPoint.x - padX, cellSide);
+
+				startPos = new BoardPoint(dragStartCell[0], dragStartCell[1]);
+				endPos = new BoardPoint(dragEndCell[0], dragEndCell[1]);
+			}
+
+			if (startPos != null && endPos != null && !startPos.equals(endPos)) {
+
+				boolean errorEncountered = false;
+				String moveString;
+				if (playState.isRemoveTurn()) {
+					moveString = String.format("R %s", endPos.toString());
+				} else if (playState.isTurn(BoardStates.DWARF) && player.getBoard().getAtPosition(endPos).equals(BoardStates.TROLL)) {
+					moveString = String.format("H %s %s", startPos.toString(), endPos.toString());
+				} else if (playState.isTurn(BoardStates.TROLL) &&
+						((Math.abs(endPos.getRow() - startPos.getRow()) > 1) || (Math.abs(endPos.getCol() - startPos.getCol())) > 1)) {
+					moveString = String.format("S %s %s", startPos.toString(), endPos.toString());
+				} else {
+					moveString = String.format("M %s %s", startPos.toString(), endPos.toString());
+				}
+
+				try {
+					player.play(playState, moveString);
+				} catch (IllegalArgumentException ex) {
+					if (statusBar != null) {
+						statusBar.setLeft(ex.getMessage());
+						errorEncountered = true;
+					}
+				}
+
+				if (ai!=null && !errorEncountered) {
+					ai.opponentPlay(moveString);
+
+					if (!playState.isRemoveTurn()) {
+						lock();
+
+						if (statusBar != null) {
+							statusBar.setLeft(getDefaultRightStatusString() + moveString);
+							statusBar.setRight("AI Thinking");
+						}
+
+						String aiMove1 = ai.selectPlay();
+						player.play(playState, aiMove1);
+						if (playState.isRemoveTurn()) {
+							String aiMove2 = ai.selectPlay();
+							player.play(playState, aiMove2);
+							aiMove1 = aiMove1 + " | " + aiMove2;
+						}
+						moveString = aiMove1;
+
+						if (statusBar != null) {
+							statusBar.setLeft(getDefaultLeftStatusString() + moveString);
+							statusBar.setRight(getDefaultRightStatusString());
+						}
+
+						unlock();
+					}
+				}
+				 else {
+					if (statusBar != null && !errorEncountered) {
+						statusBar.setLeft(getDefaultLeftStatusString() + moveString);
+						statusBar.setRight(getDefaultRightStatusString());
+					}
+				}
+
+				if (removeAllButton != null && !errorEncountered) {
+					removeAllButton.setEnabled(playState.isRemoveTurn());
+				}
+
+				if (removeNoneButton != null && !errorEncountered) {
+					removeNoneButton.setEnabled(playState.isRemoveTurn() && !player.mustRemove());
+				}
+
+				if (forfeitButton != null && !errorEncountered)
+					forfeitButton.setEnabled(!playState.isRemoveTurn());
+			}
+
+			clearMouseData();
+			repaint();
+		}
+	}
+
+	public String getDefaultLeftStatusString() {
+		// last move display
+		// inverse of normal logic, we are reporting the completed move (last player's side)
+		return (playState.getTurn() != BoardStates.DWARF) ? "Dwarfs: " : "Trolls: ";
+	}
+
+	public String getDefaultRightStatusString() {
+
+		// current move display (Troll, Dwarf, Remove)
+		String turnStr;
+		if (playState.isTurn(BoardStates.DWARF))
+			turnStr = "Dwarfs Play";
+		else if (!playState.isRemoveTurn())
+			turnStr = "Trolls Play";
+		else if (player.mustRemove())
+			turnStr = "Trolls must capture";
+		else
+			turnStr = "Trolls may capture";
+
+		return turnStr;
+	}
+
 }

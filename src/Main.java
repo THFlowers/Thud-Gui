@@ -1,198 +1,429 @@
 import thud.*;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.*;
+import java.io.File;
 import java.io.IOException;
 
 /**
  * Created by Thai Flowers on 6/10/2017.
  */
 public class Main {
-    static Board board;
-    static Player player;
-    static PlayState playState;
-    static RecordsManager recordsManager;
+	static Board board;
+	static Player player;
+	static PlayState playState;
+	static RecordsManager recordsManager;
+	static MonteCarloPlay ai;
 
-    static JFrame frame;
-    static Container pane;
-    static BoardDisplay display;
-    static JMenuBar menu;
-    static JMenu fileMenu;
-    static JMenuItem newItem;
-    static JMenuItem saveItem;
-    static JMenuItem loadItem;
-    static JMenu actionMenu;
-    static JMenuItem forfeit;
-    static JMenuItem removeAll;
-    static JMenuItem removeNone;
-    static BoardStatusBar status;
+	static JFrame frame;
+	static Container pane;
+	static BoardDisplay display;
+	static JMenuBar menu;
 
-    public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
-                UnsupportedLookAndFeelException ex)
-        {
-            System.err.println("Can't set look and feel");
-        }
+	static JMenu fileMenu;
+	static JMenuItem newItem;
+	static JMenuItem newAIItem;
+	static JMenuItem saveItem;
+	static JMenuItem loadItem;
 
-        board  = new Board();
-        player = new Player(board);
-        playState = player.initializeGame();
-        recordsManager = new RecordsManager();
-        recordsManager.addRound(player);
+	static JMenu actionMenu;
+	static JMenuItem forfeit;
+	static JMenuItem removeAll;
+	static JMenuItem removeNone;
 
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                createAndShowGUI();
-            }
-        });
+	static JMenu aboutMenu;
+	static JMenuItem thudItem;
+	static JMenuItem copyrightItem;
+	static JMenuItem howToPlayItem;
 
-    }
+	static BoardStatusBar status;
 
-    public static void createAndShowGUI() {
-        frame = new JFrame("Thud!");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        pane = frame.getContentPane();
+	public static void main(String[] args) {
+		board  = new Board();
+		player = new Player(board);
+		playState = player.initializeGame();
+		recordsManager = new RecordsManager();
+		recordsManager.addRound(player);
 
-        display = new BoardDisplay(player, playState);
-        pane.add(display, BorderLayout.CENTER);
+		javax.swing.SwingUtilities.invokeLater(() -> createAndShowGUI());
+	}
 
-        menu = new JMenuBar();
-        pane.add(menu, BorderLayout.NORTH);
+	public static void createAndShowGUI() {
+		frame = new JFrame("Thud!");
+		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		frame.setMinimumSize(new Dimension(400, 400));
 
-        fileMenu = new JMenu("Game");
-        menu.add(fileMenu);
+		frame.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				savePrompt(() -> {
+					frame.dispose();
+					System.exit(0);
+				});
+			}
+		});
 
-        // human v human
-        newItem = new JMenuItem("New");
-        newItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                board = new Board();
-                player = new Player(board);
-                recordsManager = new RecordsManager();
+		pane = frame.getContentPane();
 
-                playState = player.initializeGame();
-                recordsManager.addRound(player);
+		display = new BoardDisplay(player, playState);
+		pane.add(display, BorderLayout.CENTER);
 
-                display.swapData(player, playState);
+		menu = new JMenuBar();
+		pane.add(menu, BorderLayout.NORTH);
 
-                status.setLeft("New Game");
-                status.setRight("Dwarfs play first");
-            }
-        });
-        fileMenu.add(newItem);
+		fileMenu = new JMenu("Game");
+		menu.add(fileMenu);
 
-        saveItem = new JMenuItem("Save");
-        saveItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
+		// human v human
+		newItem = new JMenuItem("New");
+		newItem.addActionListener(e ->
+			savePrompt(() -> {
 
-            }
-        });
-        fileMenu.add(saveItem);
+				board = new Board();
+				player = new Player(board);
+				recordsManager = new RecordsManager();
 
-        loadItem = new JMenuItem("Load");
-        loadItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser();
-                chooser.setDialogTitle("Open game records");
-                chooser.setMultiSelectionEnabled(false);
-                chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+				playState = player.initializeGame();
+				recordsManager.addRound(player);
 
-                int ret = chooser.showOpenDialog(null);
-                if (ret == JFileChooser.APPROVE_OPTION) {
-                    String filePath = chooser.getSelectedFile().getAbsolutePath();
-                    board = new Board();
-                    player = new Player(board);
-                    player.initializeGame();
-                    playState = new PlayState();
+				display.swapData(player, playState);
 
-                    try {
-                        recordsManager.loadFile(filePath);
-                    }
-                    catch (IOException ex) {
-                        System.err.println("Failed to load file");
-                    }
+				status.setLeft("New Game");
+				status.setRight("Dwarfs play first");
 
-                    recordsManager.replayRecords(player, playState);
-                    display.swapData(player, playState);
-                }
-            }
-        });
-        fileMenu.add(loadItem);
+				ai = null;
+				display.setAI(null);
 
-        actionMenu = new JMenu("Action");
-        menu.add(actionMenu);
+				removeNone.setEnabled(false);
+				removeAll.setEnabled(false);
+				forfeit.setEnabled(false);
+			})
+		);
+		fileMenu.add(newItem);
 
-        forfeit = new JMenuItem("Forfeit Round");
-        forfeit.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (recordsManager.getCurrentRound() == 2) {
-                    player.calculateScores(recordsManager.getCurrentRound());
+		newAIItem = new JMenuItem("New AI Game");
+		newAIItem.addActionListener(e ->
+				savePrompt(() -> {
 
-                    int[] scores = player.getScores();
-                    String message;
-                    if (scores[0] > scores[1])
-                        message = "Player 1";
-                    else if (scores[1] > scores[0])
-                        message = "Player 2 Wins";
-                    else
-                        message = "Draw";
+					board = new Board();
+					player = new Player(board);
+					recordsManager = new RecordsManager();
 
-                    status.setLeft("Game Over");
-                    status.setRight(message);
+					playState = player.initializeGame();
+					recordsManager.addRound(player);
+					ai = new MonteCarloPlay(BoardStates.TROLL);
 
-                    display.lock();
-                }
-                else {
-                    player.calculateScores(recordsManager.getCurrentRound());
-                    board = new Board();
-                    player = new Player(board);
+					display.swapData(player, playState);
+					display.setAI(ai);
 
-                    playState = player.initializeGame();
-                    recordsManager.addRound(player);
+					status.setLeft("New AI Game");
+					status.setRight("Human plays first");
 
-                    display.swapData(player, playState);
+					removeNone.setEnabled(false);
+					removeAll.setEnabled(false);
+					forfeit.setEnabled(false);
+				})
+		);
+		fileMenu.add(newAIItem);
 
-                    status.setLeft("Round 2");
-                    status.setRight("Dwarfs play first");
-                }
-            }
-        });
-        actionMenu.add(forfeit);
+		saveItem = new JMenuItem("Save");
+		saveItem.addActionListener(e -> {
+			if (!player.getMoveLog().isEmpty() || recordsManager.getCurrentRound()>1)
+				saveDialog();
+			else {
+				JOptionPane.showMessageDialog(frame.getComponent(0), "Nothing to Save!", "Error", JOptionPane.ERROR_MESSAGE);
+			}
+		});
+		fileMenu.add(saveItem);
 
-        removeAll = new JMenuItem("Remove All");
-        removeAll.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
+		loadItem = new JMenuItem("Load");
+		loadItem.addActionListener(e ->
+			savePrompt(() -> {
+				JFileChooser chooser = new JFileChooser();
+				chooser.setDialogTitle("Open game records");
+				chooser.setMultiSelectionEnabled(false);
+				chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+				chooser.setFileFilter(new FileNameExtensionFilter("Plain text", "txt", "text"));
 
-            }
-        });
-        actionMenu.add(removeAll);
+				int ret = chooser.showOpenDialog(null);
+				if (ret == JFileChooser.APPROVE_OPTION) {
+					String filePath = chooser.getSelectedFile().getAbsolutePath();
+					board = new Board();
+					player = new Player(board);
+					player.initializeGame();
+					playState = new PlayState();
 
-        removeNone = new JMenuItem("Remove None");
-        removeNone.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
+					try {
+						recordsManager.loadFile(filePath);
+					} catch (IOException ex) {
+						System.err.println("Failed to load file");
+					}
 
-            }
-        });
-        actionMenu.add(removeNone);
+					// replayRecords clears resumeRound, need current value later
+					boolean resumeRound = recordsManager.resumeRound();
+					recordsManager.replayRecords(player, playState);
 
-        status = new BoardStatusBar();
-        display.setStatusBar(status);
-        status.setOpaque(false);
-        status.setLeft("Welcome to Thud!");
-        status.setRight("Dwarfs move first");
-        frame.add(status, BorderLayout.SOUTH);
+					boolean isRemoveTurn = playState.isRemoveTurn();
+					boolean mustRemove = player.mustRemove();
 
-        frame.pack();
-        frame.setVisible(true);
-    }
+					removeAll.setEnabled(isRemoveTurn);
+					removeNone.setEnabled(isRemoveTurn && !mustRemove);
+
+					if (!resumeRound) {
+						int round = recordsManager.getCurrentRound();
+						forfeit.setEnabled(false);
+						if (round == 1) {
+
+							playState = player.initializeGame();
+							recordsManager.addRound(player);
+
+							status.setLeft("New Game");
+							status.setRight("Dwarfs play first");
+						}
+						if (round == 2) {
+
+							playState = player.initializeGame();
+							recordsManager.addRound(player);
+
+							status.setLeft("Round 2");
+							status.setRight("Dwarfs play first");
+						}
+						if (round == 3) {
+							setGameOver();
+						}
+					} else {
+						forfeit.setEnabled(!mustRemove);
+						status.setLeft(display.getDefaultLeftStatusString() + player.getLastMove());
+						status.setRight(display.getDefaultRightStatusString());
+					}
+
+					display.swapData(player, playState);
+					display.setAI(null);
+					ai = null;
+				}
+			})
+		);
+		fileMenu.add(loadItem);
+
+		actionMenu = new JMenu("Action");
+		menu.add(actionMenu);
+
+		forfeit = new JMenuItem("Forfeit Round");
+		forfeit.addActionListener(e -> {
+			player.calculateScores(recordsManager.getCurrentRound());
+			if (recordsManager.getCurrentRound() == 2) {
+				setGameOver();
+			}
+			else {
+				board = new Board();
+				player = new Player(board);
+
+				playState = player.initializeGame();
+				recordsManager.addRound(player);
+
+				display.swapData(player, playState);
+
+				removeNone.setEnabled(false);
+				removeAll.setEnabled(false);
+
+				if (ai==null) {
+					forfeit.setEnabled(false);
+
+					status.setLeft("Round 2");
+					status.setRight("Dwarfs play first");
+				}
+				else {
+					forfeit.setEnabled(true);
+
+					ai = new MonteCarloPlay(BoardStates.DWARF);
+					display.setAI(ai);
+
+					// no remove possible on first turn (under normal rules)
+					String move = ai.selectPlay();
+					player.play(playState, move);
+
+					status.setLeft(display.getDefaultLeftStatusString() + " " + move);
+					status.setRight(display.getDefaultRightStatusString());
+				}
+			}
+		});
+		actionMenu.add(forfeit);
+
+		display.setForfeitButton(forfeit);
+
+		removeAll = new JMenuItem("Remove All");
+		removeAll.addActionListener(e -> {
+			String oldMove = player.getLastMove();
+			String[] oldCommand = oldMove.split(" ");
+			BoardPoint pos = new BoardPoint(oldCommand[2]);
+
+			PossiblePieceMoves possible = player.getPossiblePieceMoves(playState, pos);
+			StringBuilder remPositions = new StringBuilder();
+			for (BoardPoint remPos : possible.getRemove()) {
+				remPositions.append(remPos.toString());
+				remPositions.append(" ");
+			}
+
+			String move = String.format("R %s", remPositions.toString());
+			player.play(playState, move);
+			if (ai!=null) {
+				ai.opponentPlay(move);
+				player.play(playState, ai.selectPlay());
+			}
+
+			status.setLeft(display.getDefaultLeftStatusString() + " " + move);
+			status.setRight(display.getDefaultRightStatusString());
+
+			display.clearMouseData();
+			removeNone.setEnabled(false);
+			removeAll.setEnabled(false);
+			forfeit.setEnabled(true);
+		});
+		actionMenu.add(removeAll);
+
+		removeNone = new JMenuItem("Remove None");
+		removeNone.addActionListener(e -> {
+			String move = "R ";
+			player.play(playState, move);
+			if (ai!=null)
+				ai.opponentPlay(move);
+
+			display.clearMouseData();
+			status.setLeft(display.getDefaultLeftStatusString() + " Remove None");
+			status.setRight(display.getDefaultRightStatusString());
+
+			removeNone.setEnabled(false);
+			removeAll.setEnabled(false);
+			forfeit.setEnabled(true);
+		});
+		actionMenu.add(removeNone);
+
+		display.setRemoveButtons(removeAll, removeNone);
+
+		aboutMenu = new JMenu("About");
+		menu.add(aboutMenu);
+
+		thudItem = new JMenuItem("Thud?");
+		thudItem.addActionListener(e -> JOptionPane.showMessageDialog(frame.getComponent(0), "Message", "Title", JOptionPane.INFORMATION_MESSAGE));
+		aboutMenu.add(thudItem);
+
+		copyrightItem = new JMenuItem("Copyright");
+		copyrightItem.addActionListener(e -> JOptionPane.showMessageDialog(frame.getComponent(0), "Message", "Title", JOptionPane.INFORMATION_MESSAGE));
+		aboutMenu.add(copyrightItem);
+
+		howToPlayItem = new JMenuItem("How To Play");
+		howToPlayItem.addActionListener(e -> JOptionPane.showMessageDialog(frame.getComponent(0), "Message", "Title", JOptionPane.INFORMATION_MESSAGE));
+		aboutMenu.add(howToPlayItem);
+
+		status = new BoardStatusBar();
+		display.setStatusBar(status);
+		status.setOpaque(false);
+		status.setLeft("Welcome to Thud!");
+		status.setRight("Dwarfs play first");
+		frame.add(status, BorderLayout.SOUTH);
+
+		frame.pack();
+		frame.setVisible(true);
+	}
+
+	static void setGameOver() {
+		int[] scores = player.getScores();
+		String message;
+		if (scores[0] > scores[1])
+			message = (ai==null) ? "Player 1 Wins" : "Player Wins";
+		else if (scores[1] > scores[0])
+			message = (ai==null) ? "Player 2 Wins" : "Computer Wins";
+		else
+			message = "Draw";
+
+		status.setLeft("Game Over");
+		status.setRight(message);
+
+		display.lock();
+		forfeit.setEnabled(false);
+	}
+
+	static void saveDialog() {
+		// Confirm dialog code lifted from: Roberto Luis Bisbé
+		// https://stackoverflow.com/questions/3651494/jfilechooser-with-confirmation-dialog
+		JFileChooser chooser = new JFileChooser() {
+			@Override
+			public void approveSelection(){
+				File f = getSelectedFile();
+				if(f.exists() && getDialogType() == SAVE_DIALOG){
+					int result = JOptionPane.showConfirmDialog(this,"The file exists, overwrite?","Existing file",JOptionPane.YES_NO_CANCEL_OPTION);
+					switch(result){
+						case JOptionPane.YES_OPTION:
+							super.approveSelection();
+							return;
+						case JOptionPane.NO_OPTION:
+							return;
+						case JOptionPane.CLOSED_OPTION:
+							return;
+						case JOptionPane.CANCEL_OPTION:
+							cancelSelection();
+							return;
+					}
+				}
+				super.approveSelection();
+			}
+		};
+		chooser.setDialogTitle("Save game records");
+		chooser.setMultiSelectionEnabled(false);
+		chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+		chooser.setFileFilter(new FileNameExtensionFilter("Plain text", "txt", "text"));
+
+		int ret = chooser.showSaveDialog(null);
+		if (ret == JFileChooser.APPROVE_OPTION) {
+			String filePath = chooser.getSelectedFile().getAbsolutePath();
+
+			try {
+				recordsManager.saveFile(filePath);
+			} catch (IOException ex) {
+				System.err.println("Failed to save file");
+			}
+		}
+	}
+
+	static void savePrompt(final Runnable command) {
+		int round = recordsManager.getCurrentRound();
+		if (round > 1 || (round == 1 && player.getMoveLog().size() > 0)) {
+			JDialog sure = new JDialog(frame);
+			sure.setLayout(new FlowLayout());
+			sure.setVisible(true);
+
+			JLabel exitMessage = new JLabel("Game in progress, do you want to save?");
+			sure.add(exitMessage);
+
+			JButton okButton = new JButton("Ok");
+			okButton.addActionListener(e1 -> {
+				saveDialog();
+				command.run();
+				sure.setModal(true);
+				sure.dispose();
+			});
+			sure.add(okButton);
+
+			JButton noButton = new JButton("No");
+			noButton.addActionListener(e2 -> {
+				command.run();
+				sure.setModal(true);
+				sure.dispose();
+			});
+			sure.add(noButton);
+
+			JButton cancelButton = new JButton("Cancel");
+			cancelButton.addActionListener(e3 -> {
+				sure.setModal(true);
+				sure.dispose();
+			});
+			sure.add(cancelButton);
+
+			sure.pack();
+		}
+		else
+			command.run();
+	}
 }
