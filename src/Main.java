@@ -271,6 +271,8 @@ public class Main {
 			if (ai!=null) {
 				ai.opponentPlay(move);
 				player.play(playState, ai.selectPlay());
+				if (playState.isRemoveTurn())
+					player.play(playState, ai.selectPlay());
 			}
 
 			status.setLeft(display.getDefaultLeftStatusString() + " " + move);
@@ -306,15 +308,38 @@ public class Main {
 		menu.add(aboutMenu);
 
 		thudItem = new JMenuItem("Thud?");
-		thudItem.addActionListener(e -> JOptionPane.showMessageDialog(frame.getComponent(0), "Message", "Title", JOptionPane.INFORMATION_MESSAGE));
+		String thudMessage =
+			"Thud! is an abstract asymmetric board game similar to ancient Hnefatafl. \n" +
+            "The game is a battle between Trolls (8 inner pieces) and Dwarfs (32 outer pieces). \n" +
+            "It is played in 2 rounds, with each player taking one turn as each side. \n " +
+			"A round ends by mutual agreement to \"Forfeit\", then the score for the round is calculated. \n" +
+			"Each surviving Troll is 40 points, and each Dwarf is 10. \n" +
+            "See https://en.wikipedia.org/wiki/Games_of_the_Discworld#Thud for more info. \n" +
+			"See \"How To Play\" for piece movement";
+		thudItem.addActionListener(e ->
+			JOptionPane.showMessageDialog(frame.getComponent(0), thudMessage, "Title", JOptionPane.INFORMATION_MESSAGE));
 		aboutMenu.add(thudItem);
 
 		copyrightItem = new JMenuItem("Copyright");
-		copyrightItem.addActionListener(e -> JOptionPane.showMessageDialog(frame.getComponent(0), "Message", "Title", JOptionPane.INFORMATION_MESSAGE));
+		String copyrightMessage =
+				"Thud! © Trevor Truran \n" +
+				"Thud-Gui © 2017 Thai Flowers released under the GNU Public License v3";
+		copyrightItem.addActionListener(e ->
+			JOptionPane.showMessageDialog(frame.getComponent(0), copyrightMessage, "Thud-Gui Copyright", JOptionPane.INFORMATION_MESSAGE));
 		aboutMenu.add(copyrightItem);
 
 		howToPlayItem = new JMenuItem("How To Play");
-		howToPlayItem.addActionListener(e -> JOptionPane.showMessageDialog(frame.getComponent(0), "Message", "Title", JOptionPane.INFORMATION_MESSAGE));
+		String howToPlayMessage =
+			"Dwarfs play first. \n" +
+			"Trolls move like chess kings and MAY remove Dwarfs 1 square away after moving.\n " +
+			"Click and drag to capture one piece, select the menu item for None or All adjacent.\n " +
+			"Dwarfs move like chess queens, and can only capture lining up and hurling themselves at Trolls. \n" +
+			"The legal maximum distance being the number of Dwarfs in a row. \n" +
+			"Likewise Trolls can shove, but must land next to a dwarf and MUST capture at least one Dwarf. \n" +
+			"Forfeit is not allowed when a capture is needed. \n" +
+			"The thud stone does not move.";
+		howToPlayItem.addActionListener(e ->
+			JOptionPane.showMessageDialog(frame.getComponent(0), howToPlayMessage, "How to Play", JOptionPane.INFORMATION_MESSAGE));
 		aboutMenu.add(howToPlayItem);
 
 		status = new BoardStatusBar();
@@ -390,38 +415,20 @@ public class Main {
 	static void savePrompt(final Runnable command) {
 		int round = recordsManager.getCurrentRound();
 		if (round > 1 || (round == 1 && player.getMoveLog().size() > 0)) {
-			JDialog sure = new JDialog(frame);
-			sure.setLayout(new FlowLayout());
-			sure.setVisible(true);
 
-			JLabel exitMessage = new JLabel("Game in progress, do you want to save?");
-			sure.add(exitMessage);
-
-			JButton okButton = new JButton("Ok");
-			okButton.addActionListener(e1 -> {
-				saveDialog();
-				command.run();
-				sure.setModal(true);
-				sure.dispose();
-			});
-			sure.add(okButton);
-
-			JButton noButton = new JButton("No");
-			noButton.addActionListener(e2 -> {
-				command.run();
-				sure.setModal(true);
-				sure.dispose();
-			});
-			sure.add(noButton);
-
-			JButton cancelButton = new JButton("Cancel");
-			cancelButton.addActionListener(e3 -> {
-				sure.setModal(true);
-				sure.dispose();
-			});
-			sure.add(cancelButton);
-
-			sure.pack();
+			int result = JOptionPane.showConfirmDialog(frame.getComponent(0),"Game in progress, do you want to save?","Save?",JOptionPane.YES_NO_CANCEL_OPTION);
+			switch(result){
+				case JOptionPane.YES_OPTION:
+					saveDialog();
+					command.run();
+					return;
+				case JOptionPane.NO_OPTION:
+					command.run();
+					return;
+				case JOptionPane.CLOSED_OPTION:
+				case JOptionPane.CANCEL_OPTION:
+					return;
+			}
 		}
 		else
 			command.run();

@@ -318,46 +318,55 @@ public class BoardDisplay extends JPanel {
 
 					if (!playState.isRemoveTurn()) {
 						lock();
-
 						if (statusBar != null) {
 							statusBar.setLeft(getDefaultRightStatusString() + moveString);
 							statusBar.setRight("AI Thinking");
 						}
+						if (removeAllButton != null)
+							removeAllButton.setEnabled(false);
+						if (removeNoneButton != null)
+							removeNoneButton.setEnabled(false);
+						if (forfeitButton != null)
+							forfeitButton.setEnabled(false);
 
-						String aiMove1 = ai.selectPlay();
-						player.play(playState, aiMove1);
-						if (playState.isRemoveTurn()) {
-							String aiMove2 = ai.selectPlay();
-							player.play(playState, aiMove2);
-							aiMove1 = aiMove1 + " | " + aiMove2;
-						}
-						moveString = aiMove1;
-
+						//Runnable run = new Thread(BoardDisplay.this::aiMove);
+						javax.swing.SwingUtilities.invokeLater(BoardDisplay.this::aiMove);
+					}
+					else {
 						if (statusBar != null) {
 							statusBar.setLeft(getDefaultLeftStatusString() + moveString);
 							statusBar.setRight(getDefaultRightStatusString());
 						}
 
-						unlock();
+						if (removeAllButton != null) {
+							removeAllButton.setEnabled(true);
+						}
+
+						if (removeNoneButton != null) {
+							removeNoneButton.setEnabled(!player.mustRemove());
+						}
+
+						if (forfeitButton != null)
+							forfeitButton.setEnabled(false);
 					}
 				}
-				 else {
+				else {
 					if (statusBar != null && !errorEncountered) {
 						statusBar.setLeft(getDefaultLeftStatusString() + moveString);
 						statusBar.setRight(getDefaultRightStatusString());
 					}
-				}
 
-				if (removeAllButton != null && !errorEncountered) {
-					removeAllButton.setEnabled(playState.isRemoveTurn());
-				}
+					if (removeAllButton != null && !errorEncountered) {
+						removeAllButton.setEnabled(playState.isRemoveTurn());
+					}
 
-				if (removeNoneButton != null && !errorEncountered) {
-					removeNoneButton.setEnabled(playState.isRemoveTurn() && !player.mustRemove());
-				}
+					if (removeNoneButton != null && !errorEncountered) {
+						removeNoneButton.setEnabled(playState.isRemoveTurn() && !player.mustRemove());
+					}
 
-				if (forfeitButton != null && !errorEncountered)
-					forfeitButton.setEnabled(!playState.isRemoveTurn());
+					if (forfeitButton != null && !errorEncountered)
+						forfeitButton.setEnabled(!playState.isRemoveTurn());
+				}
 			}
 
 			clearMouseData();
@@ -385,6 +394,36 @@ public class BoardDisplay extends JPanel {
 			turnStr = "Trolls may capture";
 
 		return turnStr;
+	}
+
+	private void aiMove() {
+		String aiMove1 = ai.selectPlay();
+		player.play(playState, aiMove1);
+		if (playState.isRemoveTurn()) {
+			String aiMove2 = ai.selectPlay();
+			player.play(playState, aiMove2);
+			aiMove1 = aiMove1 + " | " + aiMove2;
+		}
+
+		if (statusBar != null) {
+			statusBar.setLeft(getDefaultLeftStatusString() + aiMove1);
+			statusBar.setRight(getDefaultRightStatusString());
+		}
+
+		if (removeAllButton != null) {
+			removeAllButton.setEnabled(false);
+		}
+
+		if (removeNoneButton != null) {
+			removeNoneButton.setEnabled(false);
+		}
+
+		if (forfeitButton != null)
+			forfeitButton.setEnabled(true);
+
+		clearMouseData();
+		repaint();
+		unlock();
 	}
 
 }
