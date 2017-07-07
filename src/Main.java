@@ -41,7 +41,7 @@ public class Main {
 	static BoardStatusBar status;
 
 	public static void main(String[] args) {
-		board  = new Board();
+		board = new Board();
 		player = new Player(board);
 		playState = player.initializeGame();
 		recordsManager = new RecordsManager();
@@ -79,27 +79,27 @@ public class Main {
 		// human v human
 		newItem = new JMenuItem("New");
 		newItem.addActionListener(e ->
-			savePrompt(() -> {
+				savePrompt(() -> {
 
-				board = new Board();
-				player = new Player(board);
-				recordsManager = new RecordsManager();
+					board = new Board();
+					player = new Player(board);
+					recordsManager = new RecordsManager();
 
-				playState = player.initializeGame();
-				recordsManager.addRound(player);
+					playState = player.initializeGame();
+					recordsManager.addRound(player);
 
-				display.swapData(player, playState);
+					display.swapData(player, playState);
 
-				status.setLeft("New Game");
-				status.setRight("Dwarfs play first");
+					status.setLeft("New Game");
+					status.setRight("Dwarfs play first");
 
-				ai = null;
-				display.setAI(null);
+					ai = null;
+					display.setAI(null);
 
-				removeNone.setEnabled(false);
-				removeAll.setEnabled(false);
-				forfeit.setEnabled(false);
-			})
+					removeNone.setEnabled(false);
+					removeAll.setEnabled(false);
+					forfeit.setEnabled(false);
+				})
 		);
 		fileMenu.add(newItem);
 
@@ -130,7 +130,7 @@ public class Main {
 
 		saveItem = new JMenuItem("Save");
 		saveItem.addActionListener(e -> {
-			if (!player.getMoveLog().isEmpty() || recordsManager.getCurrentRound()>1)
+			if (!player.getMoveLog().isEmpty() || recordsManager.getCurrentRound() > 1)
 				saveDialog();
 			else {
 				JOptionPane.showMessageDialog(frame.getComponent(0), "Nothing to Save!", "Error", JOptionPane.ERROR_MESSAGE);
@@ -140,70 +140,70 @@ public class Main {
 
 		loadItem = new JMenuItem("Load");
 		loadItem.addActionListener(e ->
-			savePrompt(() -> {
-				JFileChooser chooser = new JFileChooser();
-				chooser.setDialogTitle("Open game records");
-				chooser.setMultiSelectionEnabled(false);
-				chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-				chooser.setFileFilter(new FileNameExtensionFilter("Plain text", "txt", "text"));
+				savePrompt(() -> {
+					JFileChooser chooser = new JFileChooser();
+					chooser.setDialogTitle("Open game records");
+					chooser.setMultiSelectionEnabled(false);
+					chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+					chooser.setFileFilter(new FileNameExtensionFilter("Plain text", "txt", "text"));
 
-				int ret = chooser.showOpenDialog(null);
-				if (ret == JFileChooser.APPROVE_OPTION) {
-					String filePath = chooser.getSelectedFile().getAbsolutePath();
-					board = new Board();
-					player = new Player(board);
-					player.initializeGame();
-					playState = new PlayState();
+					int ret = chooser.showOpenDialog(null);
+					if (ret == JFileChooser.APPROVE_OPTION) {
+						String filePath = chooser.getSelectedFile().getAbsolutePath();
+						board = new Board();
+						player = new Player(board);
+						player.initializeGame();
+						playState = new PlayState();
 
-					try {
-						recordsManager.loadFile(filePath);
-					} catch (IOException ex) {
-						System.err.println("Failed to load file");
+						try {
+							recordsManager.loadFile(filePath);
+						} catch (IOException ex) {
+							System.err.println("Failed to load file");
+						}
+
+						// replayRecords clears resumeRound, need current value later
+						boolean resumeRound = recordsManager.resumeRound();
+						recordsManager.replayRecords(player, playState);
+
+						boolean isRemoveTurn = playState.isRemoveTurn();
+						boolean mustRemove = player.mustRemove();
+
+						removeAll.setEnabled(isRemoveTurn);
+						removeNone.setEnabled(isRemoveTurn && !mustRemove);
+
+						if (!resumeRound) {
+							int round = recordsManager.getCurrentRound();
+							forfeit.setEnabled(false);
+							if (round == 1) {
+
+								playState = player.initializeGame();
+								recordsManager.addRound(player);
+
+								status.setLeft("New Game");
+								status.setRight("Dwarfs play first");
+							}
+							if (round == 2) {
+
+								playState = player.initializeGame();
+								recordsManager.addRound(player);
+
+								status.setLeft("Round 2");
+								status.setRight("Dwarfs play first");
+							}
+							if (round == 3) {
+								setGameOver();
+							}
+						} else {
+							forfeit.setEnabled(!mustRemove);
+							status.setLeft(display.getDefaultLeftStatusString() + player.getLastMove());
+							status.setRight(display.getDefaultRightStatusString());
+						}
+
+						display.swapData(player, playState);
+						display.setAI(null);
+						ai = null;
 					}
-
-					// replayRecords clears resumeRound, need current value later
-					boolean resumeRound = recordsManager.resumeRound();
-					recordsManager.replayRecords(player, playState);
-
-					boolean isRemoveTurn = playState.isRemoveTurn();
-					boolean mustRemove = player.mustRemove();
-
-					removeAll.setEnabled(isRemoveTurn);
-					removeNone.setEnabled(isRemoveTurn && !mustRemove);
-
-					if (!resumeRound) {
-						int round = recordsManager.getCurrentRound();
-						forfeit.setEnabled(false);
-						if (round == 1) {
-
-							playState = player.initializeGame();
-							recordsManager.addRound(player);
-
-							status.setLeft("New Game");
-							status.setRight("Dwarfs play first");
-						}
-						if (round == 2) {
-
-							playState = player.initializeGame();
-							recordsManager.addRound(player);
-
-							status.setLeft("Round 2");
-							status.setRight("Dwarfs play first");
-						}
-						if (round == 3) {
-							setGameOver();
-						}
-					} else {
-						forfeit.setEnabled(!mustRemove);
-						status.setLeft(display.getDefaultLeftStatusString() + player.getLastMove());
-						status.setRight(display.getDefaultRightStatusString());
-					}
-
-					display.swapData(player, playState);
-					display.setAI(null);
-					ai = null;
-				}
-			})
+				})
 		);
 		fileMenu.add(loadItem);
 
@@ -215,8 +215,7 @@ public class Main {
 			player.calculateScores(recordsManager.getCurrentRound());
 			if (recordsManager.getCurrentRound() == 2) {
 				setGameOver();
-			}
-			else {
+			} else {
 				board = new Board();
 				player = new Player(board);
 
@@ -228,24 +227,34 @@ public class Main {
 				removeNone.setEnabled(false);
 				removeAll.setEnabled(false);
 
-				if (ai==null) {
-					forfeit.setEnabled(false);
-
+				if (ai == null) {
 					status.setLeft("Round 2");
 					status.setRight("Dwarfs play first");
-				}
-				else {
-					forfeit.setEnabled(true);
 
+					forfeit.setEnabled(false);
+				} else {
 					ai = new MonteCarloPlay(BoardStates.DWARF);
 					display.setAI(ai);
 
-					// no remove possible on first turn (under normal rules)
-					String move = ai.selectPlay();
-					player.play(playState, move);
+					forfeit.setEnabled(false);
 
-					status.setLeft(display.getDefaultLeftStatusString() + " " + move);
-					status.setRight(display.getDefaultRightStatusString());
+					display.lock();
+					status.setLeft("Dwarfs Move First");
+					status.setRight("AI Thinking");
+					display.repaint();
+
+					SwingUtilities.invokeLater(() -> {
+						// no remove possible on first turn (under normal rules)
+						String move = ai.selectPlay();
+						player.play(playState, move);
+
+						status.setLeft(display.getDefaultLeftStatusString() + " " + move);
+						status.setRight(display.getDefaultRightStatusString());
+
+						forfeit.setEnabled(true);
+						display.repaint();
+						display.unlock();
+					});
 				}
 			}
 		});
@@ -268,20 +277,7 @@ public class Main {
 
 			String move = String.format("R %s", remPositions.toString());
 			player.play(playState, move);
-			if (ai!=null) {
-				ai.opponentPlay(move);
-				player.play(playState, ai.selectPlay());
-				if (playState.isRemoveTurn())
-					player.play(playState, ai.selectPlay());
-			}
-
-			status.setLeft(display.getDefaultLeftStatusString() + " " + move);
-			status.setRight(display.getDefaultRightStatusString());
-
-			display.clearMouseData();
-			removeNone.setEnabled(false);
-			removeAll.setEnabled(false);
-			forfeit.setEnabled(true);
+			removeButtonPlay(move);
 		});
 		actionMenu.add(removeAll);
 
@@ -289,16 +285,7 @@ public class Main {
 		removeNone.addActionListener(e -> {
 			String move = "R ";
 			player.play(playState, move);
-			if (ai!=null)
-				ai.opponentPlay(move);
-
-			display.clearMouseData();
-			status.setLeft(display.getDefaultLeftStatusString() + " Remove None");
-			status.setRight(display.getDefaultRightStatusString());
-
-			removeNone.setEnabled(false);
-			removeAll.setEnabled(false);
-			forfeit.setEnabled(true);
+            removeButtonPlay(move);
 		});
 		actionMenu.add(removeNone);
 
@@ -309,37 +296,37 @@ public class Main {
 
 		thudItem = new JMenuItem("Thud?");
 		String thudMessage =
-			"Thud! is an abstract asymmetric board game similar to ancient Hnefatafl. \n" +
-            "The game is a battle between Trolls (8 inner pieces) and Dwarfs (32 outer pieces). \n" +
-            "It is played in 2 rounds, with each player taking one turn as each side. \n " +
-			"A round ends by mutual agreement to \"Forfeit\", then the score for the round is calculated. \n" +
-			"Each surviving Troll is 40 points, and each Dwarf is 10. \n" +
-            "See https://en.wikipedia.org/wiki/Games_of_the_Discworld#Thud for more info. \n" +
-			"See \"How To Play\" for piece movement";
+				"Thud! is an abstract asymmetric board game similar to ancient Hnefatafl. \n" +
+						"The game is a battle between Trolls (8 inner pieces) and Dwarfs (32 outer pieces). \n" +
+						"It is played in 2 rounds, with each player taking one turn as each side. \n " +
+						"A round ends by mutual agreement to \"Forfeit\", then the score for the round is calculated. \n" +
+						"Each surviving Troll is 40 points, and each Dwarf is 10. \n" +
+						"See https://en.wikipedia.org/wiki/Games_of_the_Discworld#Thud for more info. \n" +
+						"See \"How To Play\" for piece movement";
 		thudItem.addActionListener(e ->
-			JOptionPane.showMessageDialog(frame.getComponent(0), thudMessage, "Title", JOptionPane.INFORMATION_MESSAGE));
+				JOptionPane.showMessageDialog(frame.getComponent(0), thudMessage, "Title", JOptionPane.INFORMATION_MESSAGE));
 		aboutMenu.add(thudItem);
 
 		copyrightItem = new JMenuItem("Copyright");
 		String copyrightMessage =
 				"Thud! © Trevor Truran \n" +
-				"Thud-Gui © 2017 Thai Flowers released under the GNU Public License v3";
+						"Thud-Gui © 2017 Thai Flowers released under the GNU Public License v3";
 		copyrightItem.addActionListener(e ->
-			JOptionPane.showMessageDialog(frame.getComponent(0), copyrightMessage, "Thud-Gui Copyright", JOptionPane.INFORMATION_MESSAGE));
+				JOptionPane.showMessageDialog(frame.getComponent(0), copyrightMessage, "Thud-Gui Copyright", JOptionPane.INFORMATION_MESSAGE));
 		aboutMenu.add(copyrightItem);
 
 		howToPlayItem = new JMenuItem("How To Play");
 		String howToPlayMessage =
-			"Dwarfs play first. \n" +
-			"Trolls move like chess kings and MAY remove Dwarfs 1 square away after moving.\n " +
-			"Click and drag to capture one piece, select the menu item for None or All adjacent.\n " +
-			"Dwarfs move like chess queens, and can only capture lining up and hurling themselves at Trolls. \n" +
-			"The legal maximum distance being the number of Dwarfs in a row. \n" +
-			"Likewise Trolls can shove, but must land next to a dwarf and MUST capture at least one Dwarf. \n" +
-			"Forfeit is not allowed when a capture is needed. \n" +
-			"The thud stone does not move.";
+				"Dwarfs play first. \n" +
+						"Trolls move like chess kings and MAY remove Dwarfs 1 square away after moving.\n " +
+						"Click and drag to capture one piece, select the menu item for None or All adjacent.\n " +
+						"Dwarfs move like chess queens, and can only capture lining up and hurling themselves at Trolls. \n" +
+						"The legal maximum distance being the number of Dwarfs in a row. \n" +
+						"Likewise Trolls can shove, but must land next to a dwarf and MUST capture at least one Dwarf. \n" +
+						"Forfeit is not allowed when a capture is needed. \n" +
+						"The thud stone does not move.";
 		howToPlayItem.addActionListener(e ->
-			JOptionPane.showMessageDialog(frame.getComponent(0), howToPlayMessage, "How to Play", JOptionPane.INFORMATION_MESSAGE));
+				JOptionPane.showMessageDialog(frame.getComponent(0), howToPlayMessage, "How to Play", JOptionPane.INFORMATION_MESSAGE));
 		aboutMenu.add(howToPlayItem);
 
 		status = new BoardStatusBar();
@@ -357,9 +344,9 @@ public class Main {
 		int[] scores = player.getScores();
 		String message;
 		if (scores[0] > scores[1])
-			message = (ai==null) ? "Player 1 Wins" : "Player Wins";
+			message = (ai == null) ? "Player 1 Wins" : "Player Wins";
 		else if (scores[1] > scores[0])
-			message = (ai==null) ? "Player 2 Wins" : "Computer Wins";
+			message = (ai == null) ? "Player 2 Wins" : "Computer Wins";
 		else
 			message = "Draw";
 
@@ -375,11 +362,11 @@ public class Main {
 		// https://stackoverflow.com/questions/3651494/jfilechooser-with-confirmation-dialog
 		JFileChooser chooser = new JFileChooser() {
 			@Override
-			public void approveSelection(){
+			public void approveSelection() {
 				File f = getSelectedFile();
-				if(f.exists() && getDialogType() == SAVE_DIALOG){
-					int result = JOptionPane.showConfirmDialog(this,"The file exists, overwrite?","Existing file",JOptionPane.YES_NO_CANCEL_OPTION);
-					switch(result){
+				if (f.exists() && getDialogType() == SAVE_DIALOG) {
+					int result = JOptionPane.showConfirmDialog(this, "The file exists, overwrite?", "Existing file", JOptionPane.YES_NO_CANCEL_OPTION);
+					switch (result) {
 						case JOptionPane.YES_OPTION:
 							super.approveSelection();
 							return;
@@ -416,8 +403,8 @@ public class Main {
 		int round = recordsManager.getCurrentRound();
 		if (round > 1 || (round == 1 && player.getMoveLog().size() > 0)) {
 
-			int result = JOptionPane.showConfirmDialog(frame.getComponent(0),"Game in progress, do you want to save?","Save?",JOptionPane.YES_NO_CANCEL_OPTION);
-			switch(result){
+			int result = JOptionPane.showConfirmDialog(frame.getComponent(0), "Game in progress, do you want to save?", "Save?", JOptionPane.YES_NO_CANCEL_OPTION);
+			switch (result) {
 				case JOptionPane.YES_OPTION:
 					saveDialog();
 					command.run();
@@ -429,8 +416,39 @@ public class Main {
 				case JOptionPane.CANCEL_OPTION:
 					return;
 			}
-		}
-		else
+		} else
 			command.run();
+	}
+
+	static void removeButtonPlay(String move) {
+		if (ai != null) {
+			display.lock();
+			status.setLeft(display.getDefaultLeftStatusString() + move);
+			status.setRight("AI Thinking");
+
+			SwingUtilities.invokeLater(() -> {
+				ai.opponentPlay(move);
+				String aiMove = ai.selectPlay();
+				player.play(playState, aiMove);
+				if (playState.isRemoveTurn())
+					player.play(playState, ai.selectPlay());
+
+				status.setLeft(display.getDefaultLeftStatusString() + " " + aiMove);
+				status.setRight(display.getDefaultRightStatusString());
+
+				forfeit.setEnabled(true);
+				display.repaint();
+				display.unlock();
+			});
+		} else {
+			status.setLeft(display.getDefaultLeftStatusString() + " " + move);
+			status.setRight(display.getDefaultRightStatusString());
+			forfeit.setEnabled(true);
+		}
+
+		removeNone.setEnabled(false);
+		removeAll.setEnabled(false);
+		display.clearMouseData();
+		display.repaint();
 	}
 }

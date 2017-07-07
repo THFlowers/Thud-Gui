@@ -314,41 +314,19 @@ public class BoardDisplay extends JPanel {
 				}
 
 				if (ai!=null && !errorEncountered) {
-					ai.opponentPlay(moveString);
-
-					if (!playState.isRemoveTurn()) {
-						lock();
-						if (statusBar != null) {
-							statusBar.setLeft(getDefaultRightStatusString() + moveString);
-							statusBar.setRight("AI Thinking");
-						}
-						if (removeAllButton != null)
-							removeAllButton.setEnabled(false);
-						if (removeNoneButton != null)
-							removeNoneButton.setEnabled(false);
-						if (forfeitButton != null)
-							forfeitButton.setEnabled(false);
-
-						//Runnable run = new Thread(BoardDisplay.this::aiMove);
-						javax.swing.SwingUtilities.invokeLater(BoardDisplay.this::aiMove);
+					lock();
+					if (statusBar != null) {
+						statusBar.setLeft(getDefaultLeftStatusString() + moveString);
+						statusBar.setRight("AI Thinking");
 					}
-					else {
-						if (statusBar != null) {
-							statusBar.setLeft(getDefaultLeftStatusString() + moveString);
-							statusBar.setRight(getDefaultRightStatusString());
-						}
+					if (removeAllButton != null)
+						removeAllButton.setEnabled(false);
+					if (removeNoneButton != null)
+						removeNoneButton.setEnabled(false);
+					if (forfeitButton != null)
+						forfeitButton.setEnabled(false);
 
-						if (removeAllButton != null) {
-							removeAllButton.setEnabled(true);
-						}
-
-						if (removeNoneButton != null) {
-							removeNoneButton.setEnabled(!player.mustRemove());
-						}
-
-						if (forfeitButton != null)
-							forfeitButton.setEnabled(false);
-					}
+					SwingUtilities.invokeLater(() -> aiMove(moveString));
 				}
 				else {
 					if (statusBar != null && !errorEncountered) {
@@ -396,30 +374,50 @@ public class BoardDisplay extends JPanel {
 		return turnStr;
 	}
 
-	private void aiMove() {
-		String aiMove1 = ai.selectPlay();
-		player.play(playState, aiMove1);
-		if (playState.isRemoveTurn()) {
-			String aiMove2 = ai.selectPlay();
-			player.play(playState, aiMove2);
-			aiMove1 = aiMove1 + " | " + aiMove2;
-		}
+	private void aiMove(final String moveString) {
+		ai.opponentPlay(moveString);
+		if (!playState.isRemoveTurn()) {
+			String aiMove1 = ai.selectPlay();
+			player.play(playState, aiMove1);
+			if (playState.isRemoveTurn()) {
+				String aiMove2 = ai.selectPlay();
+				player.play(playState, aiMove2);
+				aiMove1 = aiMove1 + " | " + aiMove2;
+			}
 
-		if (statusBar != null) {
-			statusBar.setLeft(getDefaultLeftStatusString() + aiMove1);
-			statusBar.setRight(getDefaultRightStatusString());
-		}
+			if (statusBar != null) {
+				statusBar.setLeft(getDefaultLeftStatusString() + aiMove1);
+				statusBar.setRight(getDefaultRightStatusString());
+			}
 
-		if (removeAllButton != null) {
-			removeAllButton.setEnabled(false);
-		}
+			if (removeAllButton != null) {
+				removeAllButton.setEnabled(false);
+			}
 
-		if (removeNoneButton != null) {
-			removeNoneButton.setEnabled(false);
-		}
+			if (removeNoneButton != null) {
+				removeNoneButton.setEnabled(false);
+			}
 
-		if (forfeitButton != null)
-			forfeitButton.setEnabled(true);
+			if (forfeitButton != null)
+				forfeitButton.setEnabled(true);
+		}
+		else {
+			if (statusBar != null) {
+				statusBar.setLeft(getDefaultLeftStatusString() + moveString);
+				statusBar.setRight(getDefaultRightStatusString());
+			}
+
+			if (removeAllButton != null) {
+				removeAllButton.setEnabled(true);
+			}
+
+			if (removeNoneButton != null) {
+				removeNoneButton.setEnabled(!player.mustRemove());
+			}
+
+			if (forfeitButton != null)
+				forfeitButton.setEnabled(false);
+		}
 
 		clearMouseData();
 		repaint();
